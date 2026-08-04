@@ -26,7 +26,6 @@ def process_video(path: str, vision, step: int = 3):
     cap = cv2.VideoCapture(path)
     sm = FallStateMachine()
     alarm = []
-    fp_frames = 0
     total = 0
     idx = 0
     while True:
@@ -36,14 +35,14 @@ def process_video(path: str, vision, step: int = 3):
         if idx % step != 0:
             idx += 1
             continue
-        res = vision.process_frame(frame, track=False)
+        res = vision.process_frame(frame, track=True)
         a = sm.update(res.persons)
         if a:
             alarm.extend(a)
         total += 1
         idx += 1
     cap.release()
-    return bool(alarm), fp_frames, total
+    return bool(alarm), total
 
 
 def main():
@@ -58,14 +57,14 @@ def main():
     fall_total, adl_total = 0, 0
     details = []
     for v in sorted(fall_dir.glob("*.mp4")):
-        hit, fp, total = process_video(str(v), vision)
+        hit, total = process_video(str(v), vision)
         fall_total += 1
         if hit:
             tp += 1
         details.append(("FALL", v.name, "TP" if hit else "MISS"))
         print(f"[FALL] {v.name}: {'检出' if hit else '漏检'}")
     for v in sorted(adl_dir.glob("*.mp4")):
-        hit, fp, total = process_video(str(v), vision)
+        hit, total = process_video(str(v), vision)
         adl_total += 1
         if hit:
             tn += 1

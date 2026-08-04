@@ -30,18 +30,21 @@ class FallStateMachine:
         self._alarmed: Dict[int, bool] = {}
         self._active: Dict[int, int] = {}
 
-    @staticmethod
-    def _is_lying(person: Person) -> bool:
+    def _is_lying(self, person: Person) -> bool:
         box = person.box
-        if box.aspect >= 1.0 and box.h > 0 and box.w / box.h >= 0.9:
+        # 主判据:包围框宽高比(宽/高)达到阈值,表明身体接近水平
+        if box.aspect >= self.lying_aspect:
             return True
-        if person.kps is not None:
-            neck = (person.kps.xy[5] + person.kps.xy[6]) / 2   # 肩部中点
-            hip = (person.kps.xy[11] + person.kps.xy[12]) / 2  # 髋部中点
-            if person.kps.vis(5) and person.kps.vis(6) and person.kps.vis(11) and person.kps.vis(12):
-                dy = abs(neck[1] - hip[1])
-                dx = abs(neck[0] - hip[0])
-                return dx > dy * 1.2  # 躯干接近水平
+        # 辅助判据:躯干(肩部中点→髋部中点)接近水平,排除下蹲/弯腰
+        kps = person.kps
+        if kps is not None:
+            if kps.vis(5) and kps.vis(6) and kps.vis(11) and kps.vis(12):
+                neck = (kps.xy[5] + kps.xy[6]) / 2   # 肩部中点
+                hip = (kps.xy[11] + kps.xy[12]) / 2  # 髋部中点
+                dy = abs(float(neck[1] - hip[1]))
+                dx = abs(float(neck[0] - hip[0]))
+                if dx > dy * 1.2 and box.aspect >= 0.9:
+                    return True
         return False
 
     def update(self, persons: List[Person]) -> List[int]:
@@ -50,15 +53,14 @@ class FallStateMachine:
         seen: set = set()
         for p in persons:
             tid = p.box.track_id if p.box.track_id is not None else -1
-            # 未跟踪目标按中心点最近匹配
             if tid == -1:
                 tid = self._match_untracked(p, seen)
             seen.add(tid)
+            self._active[tid] = self._active.get(tid, 0) + 1
 
             if self._is_lying(p):
                 self._upright_count[tid] = 0
                 self._lying_count[tid] = self._lying_count.get(tid, 0) + 1
-                self._active[tid] = 0
                 if self._lying_count[tid] >= self.confirm_frames and not self._alarmed.get(tid, False):
                     self._alarmed[tid] = True
                     alarms.append(tid)
@@ -68,18 +70,15 @@ class FallStateMachine:
                 if self._upright_count[tid] >= self.reset_frames:
                     self._alarmed[tid] = False
 
-        # 清理长时间消失的目标
-        stale = [k for k in list(self._active) if self._active[k] > 90]
+        # 清理长时间消失的目标(约 6s @15fps)
+        stale = [k for k in list(self._active) if k not in seen and self._active[k] > 90]
         for k in stale:
             for d in (self._lying_count, self._upright_count, self._alarmed, self._active):
                 d.pop(k, None)
         return alarms
 
     def _match_untracked(self, person: Person, seen: set) -> int:
-        best, best_d = None, 1e9
-        for tid in self._active:
-            if tid in seen or tid < 0:
-                continue
-            # 用上一帧中心做近似(简化:按最近告警目标)
-            best_d = 1e9
-        return best if best is not None else -1
+        """无跟踪ID时的兜底:按包围框中心与活跃目标做最近匹配(简化)。"""
+        if person.box.track_id is not None:
+            return person.box.track_id
+        return -1

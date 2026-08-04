@@ -11,7 +11,7 @@ RUNS_DIR = PROJECT_ROOT / "runs"
 HELMET_DATA = DATA_DIR / "helmet"
 HELMET_YOLO = HELMET_DATA / "yolo"
 HELMET_DATA_YAML = HELMET_YOLO / "data.yaml"
-HELMET_WEIGHTS = MODEL_DIR / "helmet_yolo11n.pt"
+HELMET_WEIGHTS = MODEL_DIR / "helmet_yolo11s.pt"
 UR_FALL_DIR = DATA_DIR / "fall_detection" / "ur_fall"
 DEMO_VIDEO = DATA_DIR / "demo" / "demo_safety.mp4"
 

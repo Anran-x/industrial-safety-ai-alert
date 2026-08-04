@@ -33,16 +33,18 @@ class IntrusionDetector:
         dist = cv2.pointPolygonTest(self.roi, pt, False)
         return dist >= 0
 
-    def update(self, persons: List[Person]) -> List[Tuple[int, str]]:
-        """输入人员列表,返回 [(track_id, 'INTRUSION'), ...]。"""
+    def update(self, persons: List[Person], frame_shape: Tuple[int, int]) -> List[Tuple[int, str]]:
+        """输入人员列表与当前帧 (H, W),返回 [(track_id, 'INTRUSION'), ...]。"""
         alarms: List[Tuple[int, str]] = []
         inside_ids: set = set()
+        H, W = frame_shape
 
         for p in persons:
             tid = p.box.track_id if p.box.track_id is not None else -1
             if tid < 0:
                 continue
-            inside = self._inside(p.box.cx, p.box.cy)
+            x_n, y_n = p.box.cx / max(W, 1), p.box.cy / max(H, 1)
+            inside = self._inside(x_n, y_n)
             if inside:
                 inside_ids.add(tid)
                 self._outside_count[tid] = 0

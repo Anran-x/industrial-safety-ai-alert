@@ -49,7 +49,10 @@ class SafetyVision:
         H, W = frame.shape[:2]
 
         if pose_on:
-            preds = self.pose_model(frame, device=self.device, verbose=False)
+            preds = self.pose_model.track(
+                frame, device=self.device, verbose=False, persist=True,
+                tracker="bytetrack.yaml") if track else self.pose_model.predict(
+                frame, device=self.device, verbose=False)
             if preds:
                 r = preds[0]
                 for i, box in enumerate(r.boxes):

@@ -98,7 +98,7 @@ class DemoApp:
             res = self.vision.process_frame(frame)
             fall_ids = self.fall_sm.update(res.persons)
             res.fall = bool(fall_ids)
-            intr = self.intrusion.update(res.persons)
+            intr = self.intrusion.update(res.persons, frame.shape[:2])
             # 头盔告警
             for hb in res.heads:
                 if hb.cls == 0:
