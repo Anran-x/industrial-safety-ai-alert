@@ -12,14 +12,19 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import HELMET_DATA_YAML, HELMET_WEIGHTS, RUNS_DIR
+from src.config import HELMET_DATA_YAML, HELMET_WEIGHTS, RUNS_DIR, MODEL_DIR
 
 
 def main():
     from ultralytics import YOLO
     import torch
 
-    model = YOLO("yolo11n.pt")
+    # 8.4.x 的 check_amp 会硬下载 yolo26n.pt 做 AMP 校验(网络慢会卡很久),
+    # 1050Ti(Pascal)AMP 无已知问题,这里直接跳过该校验。
+    import ultralytics.engine.trainer as _tr
+    _tr.check_amp = lambda model: True
+
+    model = YOLO(str(MODEL_DIR / "yolo11n.pt"))
     device = "0" if torch.cuda.is_available() else "cpu"
     print(f"训练设备: {device}, 显存: {torch.cuda.get_device_name(0) if device=='0' else 'CPU'}")
     results = model.train(
@@ -28,14 +33,14 @@ def main():
         imgsz=640,
         batch=8,
         device=device,
-        workers=4,
+        workers=2,
         project=str(RUNS_DIR / "helmet"),
-        name="yolo11n_50ep",
+        name="yolo11n_40ep",
         exist_ok=True,
         patience=0,
-        cache=True,
+        cache="disk",  # 机器内存有限,3.9GB 图片全进 RAM 会 OOM,改用磁盘缓存
     )
-    best = str(RUNS_DIR / "helmet" / "yolo11n_50ep" / "weights" / "best.pt")
+    best = str(RUNS_DIR / "helmet" / "yolo11n_40ep" / "weights" / "best.pt")
     HELMET_WEIGHTS.parent.mkdir(parents=True, exist_ok=True)
     import shutil
     shutil.copy2(best, HELMET_WEIGHTS)

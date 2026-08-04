@@ -51,9 +51,9 @@ class DemoApp:
             pts = np.array([(x * img.shape[1], y * img.shape[0]) for x, y in self.intrusion.roi], np.int32)
             cv2.polylines(img, [pts], True, (0, 200, 255), 2)
         for hb in result.heads:
-            color = (0, 0, 255) if hb.cls == 1 else (0, 255, 0)
+            color = (0, 0, 255) if hb.cls == 0 else (0, 255, 0)
             cv2.rectangle(img, (int(hb.x1), int(hb.y1)), (int(hb.x2), int(hb.y2)), color, 2)
-            label = "NO_HELMET" if hb.cls == 1 else "HELMET"
+            label = "NO_HELMET" if hb.cls == 0 else "HELMET"
             cv2.putText(img, f"{label} {hb.conf:.2f}", (int(hb.x1), max(18, int(hb.y1) - 6)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
         for p in result.persons:
@@ -101,7 +101,7 @@ class DemoApp:
             intr = self.intrusion.update(res.persons)
             # 头盔告警
             for hb in res.heads:
-                if hb.cls == 1:
+                if hb.cls == 0:
                     use_clip_now = use_clip and self.clip is not None
                     no_helmet = True
                     conf = hb.conf

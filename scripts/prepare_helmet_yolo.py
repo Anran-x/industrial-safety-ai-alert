@@ -18,7 +18,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from src.config import HELMET_YOLO, HELMET_DATA_YAML, HELMET_DATA
 
 RAW = HELMET_DATA / "raw" / "Phat_project-3"
-CLASS_NAMES = ["helmet", "no_helmet"]  # 待视觉确认
+CLASS_NAMES = ["no_helmet", "helmet"]  # 已由 CLIP 校验确认: 0=未戴, 1=戴
 
 
 def read_labels(lbl_path: Path) -> list:
@@ -55,8 +55,8 @@ def build_layout():
         "val: images/valid\n"
         "test: images/test\n"
         "names:\n"
-        "  0: helmet\n"
-        "  1: no_helmet\n",
+        "  0: no_helmet\n"
+        "  1: helmet\n",
         encoding="utf-8",
     )
     print(f"data.yaml -> {data_yaml}")

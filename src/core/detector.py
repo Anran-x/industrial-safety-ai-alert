@@ -82,7 +82,7 @@ class SafetyVision:
                     if track and r.boxes.id is not None:
                         hb.track_id = int(r.boxes.id[i].item())
                     res.heads.append(hb)
-                    if cls == 0:
+                    if cls == 1:
                         res.helmet_count += 1
                     else:
                         res.no_helmet_count += 1

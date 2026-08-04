@@ -41,7 +41,7 @@ def main():
         for hb in res.heads:
             if 0.25 <= hb.conf <= 0.65:  # 低置信度区间
                 stats["low_conf_dets"] += 1
-                before = hb.cls == 1
+                before = hb.cls == 0
                 after, p_no = verifier.verify(frame, hb, hb.conf)
                 if before != after:
                     if after:

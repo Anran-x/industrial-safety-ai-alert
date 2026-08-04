@@ -1,0 +1,9 @@
+torch==2.7.0+cu128
+torchvision==0.22.0+cu128
+--index-url https://download.pytorch.org/whl/cu128
+ultralytics==8.4.115
+opencv-python
+numpy
+gradio
+pandas
+transformers
