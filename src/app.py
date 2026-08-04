@@ -89,12 +89,19 @@ class DemoApp:
         cap = cv2.VideoCapture(video_path)
         out_frames = []
         frame_idx = 0
+        writer = None
         while True:
             ok, frame = cap.read()
             if not ok:
                 break
             if max_frames and frame_idx >= max_frames:
                 break
+            if writer is None:
+                h, w = frame.shape[:2]
+                fps = cap.get(cv2.CAP_PROP_FPS) or 20.0
+                tmp = PROJECT_ROOT / "results" / "demo_output.mp4"
+                tmp.parent.mkdir(parents=True, exist_ok=True)
+                writer = cv2.VideoWriter(str(tmp), cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
             res = self.vision.process_frame(frame)
             fall_ids = self.fall_sm.update(res.persons)
             res.fall = bool(fall_ids)
@@ -120,21 +127,16 @@ class DemoApp:
                                 detail="轨迹中心进入危险区域")
                 self._fire(ev, frame)
 
-            out_frames.append(self._draw(frame, res))
+            writer.write(self._draw(frame, res))
             frame_idx += 1
             if frame_idx % 30 == 0:
                 print(f"processed {frame_idx} frames", flush=True)
         cap.release()
-        if not out_frames:
+        if writer is not None:
+            writer.release()
+        if frame_idx == 0:
             return None, [], 0
-        h, w = out_frames[0].shape[:2]
-        fps = 20
         tmp = PROJECT_ROOT / "results" / "demo_output.mp4"
-        tmp.parent.mkdir(parents=True, exist_ok=True)
-        writer = cv2.VideoWriter(str(tmp), cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
-        for f in out_frames:
-            writer.write(f)
-        writer.release()
         return str(tmp), self.alerts[-20:], frame_idx
 
 
@@ -142,7 +144,7 @@ def build_ui():
     app = DemoApp()
 
     with gr.Blocks(title="工业安全 AI 智能预警系统") as demo:
-        gr.Markdown("# 工业安全 AI 智能预警原型系统\n安全帽佩戴 / 人员倒地 / 危险区域闯入 · YOLO11n + ByteTrack + CLIP")
+        gr.Markdown("# 工业安全 AI 智能预警原型系统\n安全帽佩戴 / 人员倒地 / 危险区域闯入 · YOLO11s + ByteTrack + CLIP")
         with gr.Row():
             with gr.Column(scale=2):
                 video = gr.Video(label="输入视频", format="mp4")
