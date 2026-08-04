@@ -16,8 +16,8 @@ UR_FALL_DIR = DATA_DIR / "fall_detection" / "ur_fall"
 DEMO_VIDEO = DATA_DIR / "demo" / "demo_safety.mp4"
 
 # ---------- 检测配置 ----------
-YOLO_MODEL = str(MODEL_DIR / "yolo11n.pt")
-POSE_MODEL = str(MODEL_DIR / "yolo11n-pose.pt")
+YOLO_MODEL = str(MODEL_DIR / "yolo11s.pt")
+POSE_MODEL = str(MODEL_DIR / "yolo11s-pose.pt")
 CLIP_MODEL = str(MODEL_DIR / "clip-vit-base-patch32")  # transformers 本地权重(已预下载)
 HELMET_CONF = 0.35       # 检测置信度下限
 HELMET_ALERT_CONF = 0.45  # 触发告警的置信度

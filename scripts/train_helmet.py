@@ -1,8 +1,9 @@
 """
-训练安全帽检测模型(YOLO11n)。
+训练安全帽检测模型(YOLO11s)。
 
-基线策略:1050Ti 4GB 显存限制下,先以子集训练出基线模型,
-全量数据可后续微调。指标输出到 runs/helmet/result。
+选型理由(贴近真实工业市场):检测/姿态统一采用 YOLO11 s 系列——
+标准轻量级在 1050Ti 4GB 上可训练/部署,是当前安全监控方向厂商的主流选型,
+精度显著优于 n 系列。
 
 用法: python scripts/train_helmet.py
 """
@@ -19,12 +20,12 @@ def main():
     from ultralytics import YOLO
     import torch
 
-    # 8.4.x 的 check_amp 会硬下载 yolo26n.pt 做 AMP 校验(网络慢会卡很久),
+    # 8.4.x 的 check_amp 会硬下载默认模型做 AMP 校验(网络慢会卡很久),
     # 1050Ti(Pascal)AMP 无已知问题,这里直接跳过该校验。
     import ultralytics.engine.trainer as _tr
     _tr.check_amp = lambda model: True
 
-    model = YOLO(str(MODEL_DIR / "yolo11n.pt"))
+    model = YOLO(str(MODEL_DIR / "yolo11s.pt"))
     device = "0" if torch.cuda.is_available() else "cpu"
     print(f"训练设备: {device}, 显存: {torch.cuda.get_device_name(0) if device=='0' else 'CPU'}")
     results = model.train(
@@ -35,12 +36,12 @@ def main():
         device=device,
         workers=2,
         project=str(RUNS_DIR / "helmet"),
-        name="yolo11n_40ep",
+        name="yolo11s_40ep",
         exist_ok=True,
         patience=0,
         cache="disk",  # 机器内存有限,3.9GB 图片全进 RAM 会 OOM,改用磁盘缓存
     )
-    best = str(RUNS_DIR / "helmet" / "yolo11n_40ep" / "weights" / "best.pt")
+    best = str(RUNS_DIR / "helmet" / "yolo11s_40ep" / "weights" / "best.pt")
     HELMET_WEIGHTS.parent.mkdir(parents=True, exist_ok=True)
     import shutil
     shutil.copy2(best, HELMET_WEIGHTS)
