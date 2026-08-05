@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from src.config import (
-    HELMET_WEIGHTS, POSE_MODEL, HELMET_CONF, CPU_FALLBACK,
+    HELMET_WEIGHTS, POSE_MODEL, HELMET_CONF, HELMET_IMGSZ, CPU_FALLBACK,
 )
 from src.core.models import Box, FrameResult, HeadBox, Keypoints, Person
 
@@ -20,10 +20,12 @@ class SafetyVision:
     def __init__(self, helmet_weights: Optional[str] = str(HELMET_WEIGHTS),
                  pose_model: str = POSE_MODEL,
                  helmet_conf: float = HELMET_CONF,
+                 helmet_imgsz: int = HELMET_IMGSZ,
                  device: Optional[str] = None,
                  helmet_on: bool = True):
         from ultralytics import YOLO
         self.helmet_conf = helmet_conf
+        self.helmet_imgsz = helmet_imgsz
         self.device = device or self._pick_device()
         self.helmet_on = helmet_on
         self.helmet_model = None
@@ -74,7 +76,8 @@ class SafetyVision:
                     res.persons.append(Person(box=pbox, kps=kps))
 
         if helmet_on and self.helmet_model is not None:
-            hp = self.helmet_model(frame, device=self.device, verbose=False, conf=self.helmet_conf)
+            hp = self.helmet_model(frame, device=self.device, verbose=False,
+                                   conf=self.helmet_conf, imgsz=self.helmet_imgsz)
             if hp:
                 r = hp[0]
                 for i, box in enumerate(r.boxes):
