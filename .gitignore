@@ -31,3 +31,6 @@ desktop.ini
 
 # 日志
 *.log
+
+# 个人备忘(演示素材与话术整理,仅本地)
+docs/interview_kit.md
