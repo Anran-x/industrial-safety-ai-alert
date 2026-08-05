@@ -286,7 +286,7 @@ def build_ui():
                         with gr.Row():
                             btn_helm_demo = gr.Button("载入:安全帽演示", size="sm")
                             btn_fall_demo = gr.Button("载入:倒地演示", size="sm")
-                        with gr.Accordion("高级参数(可按模块独立开关)", open=False):
+                        with gr.Accordion("高级参数(可按模块独立开关)", open=True):
                             with gr.Row():
                                 helmet_on = gr.Checkbox(value=True, label="启用安全帽检测")
                                 fall_on = gr.Checkbox(value=True, label="启用倒地检测")
