@@ -7,3 +7,5 @@ numpy
 gradio
 pandas
 transformers
+# 可选(ONNX 部署验证用): onnxruntime-gpu
+# H.264 输出依赖 openh264: 将 openh264-2.5.0-win64.dll 放到 venv\Scripts\(下载见 README)
