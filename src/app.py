@@ -167,9 +167,11 @@ class DemoApp:
                     return None, "视频编码器初始化失败(avc1/h264/mp4v 均不可用)。", [], [], 0, 0, 0
             progress((frame_idx + 1) / (max_frames or total or 1), desc=f"处理中 {frame_idx + 1} 帧")
             res = self.vision.process_frame(frame)
+            drawn = self._draw(frame, res, roi_on=intrusion_on)
             if fall_on:
                 fall_ids = self.fall_sm.update(res.persons)
                 res.fall = bool(fall_ids)
+                drawn = self._draw(frame, res, roi_on=intrusion_on)
             intr = self.intrusion.update(res.persons, frame.shape[:2]) if intrusion_on else []
             if helmet_on:
                 for hb in res.heads:
@@ -181,17 +183,17 @@ class DemoApp:
                             no_helmet, conf = self.clip.verify(frame, hb, hb.conf)
                         if no_helmet:
                             ev = AlertEvent("NO_HELMET", self.report.now(), conf, track_id=hb.track_id)
-                            self._fire(ev, frame)
+                            self._fire(ev, drawn)
             if fall_on:
                 for tid in fall_ids:
                     ev = AlertEvent("FALL", self.report.now(), 0.9, track_id=tid,
                                     detail="连续多帧姿态水平判定")
-                    self._fire(ev, frame)
+                    self._fire(ev, drawn)
             for tid, _t in intr:
                 ev = AlertEvent("INTRUSION", self.report.now(), 0.85, track_id=tid,
                                 detail="轨迹中心进入危险区域")
-                self._fire(ev, frame)
-            writer.write(self._draw(frame, res, roi_on=intrusion_on))
+                self._fire(ev, drawn)
+            writer.write(drawn)
             frame_idx += 1
         cap.release()
         if writer is not None:
@@ -240,10 +242,13 @@ def build_ui():
 
     with gr.Blocks(title="工业安全 AI 智能预警系统") as demo:
         with gr.Column(elem_id="page-title"):
-            gr.Markdown("# 工业安全 AI 智能预警原型系统")
-            gr.Markdown(
-                "YOLO11s 检测/姿态 + ByteTrack 跟踪 + 规则引擎 + CLIP 兜底 · "
-                "三大能力:安全帽佩戴 · 人员倒地 · 危险区域闯入 —— 支持按模块开关单独验证")
+            gr.HTML(
+                '<h1 style="color:#ffffff;margin:0;font-size:26px;letter-spacing:1px;">'
+                '工业安全 AI 智能预警原型系统</h1>'
+                '<p style="color:#cfe0f2;margin:6px 0 0;font-size:14px;">'
+                'YOLO11s 检测/姿态 + ByteTrack 跟踪 + 规则引擎 + CLIP 兜底 · '
+                '三大能力:安全帽佩戴 · 人员倒地 · 危险区域闯入 —— 支持按模块开关单独验证</p>'
+            )
         gr.Markdown(LEGEND_HTML)
         with gr.Tabs():
             with gr.Tab("① 视频检测"):
