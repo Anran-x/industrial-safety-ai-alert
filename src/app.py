@@ -82,14 +82,19 @@ class DemoApp:
         if roi_on:
             pts = np.array([(x * img.shape[1], y * img.shape[0]) for x, y in self.intrusion.roi], np.int32)
             overlay = img.copy()
-            cv2.fillPoly(overlay, [pts], (255, 200, 0))
-            img = cv2.addWeighted(overlay, 0.14, img, 0.86, 0)
-            cv2.polylines(img, [pts], True, (255, 200, 0), 2)
-            cv2.putText(img, "DANGER ZONE", (pts[:, 0].min(), max(24, pts[:, 1].min() - 8)),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 200, 0), 2)
+            cv2.fillPoly(overlay, [pts], (0, 215, 255))
+            img = cv2.addWeighted(overlay, 0.18, img, 0.82, 0)
+            cv2.polylines(img, [pts], True, (0, 215, 255), 3)
+            cv2.putText(img, "DANGER ZONE", (pts[:, 0].min(), max(24, pts[:, 1].min() - 10)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 215, 255), 2)
+        for p in result.persons:
+            b = p.box
+            cv2.rectangle(img, (int(b.x1), int(b.y1)), (int(b.x2), int(b.y2)), (255, 128, 0), 2)
+            cv2.putText(img, f"P#{b.track_id} {b.conf:.2f}", (int(b.x1), int(b.y1) - 6),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 128, 0), 1)
         for hb in result.heads:
             no_helmet = hb.cls == 0
-            color = (220, 30, 30) if no_helmet else (80, 175, 60)
+            color = (40, 40, 235) if no_helmet else (80, 175, 60)
             thick = 3 if no_helmet else 2
             cv2.rectangle(img, (int(hb.x1), int(hb.y1)), (int(hb.x2), int(hb.y2)), color, thick)
             label = f"NO_HELMET {hb.conf:.2f}" if no_helmet else f"HELMET {hb.conf:.2f}"
@@ -97,18 +102,21 @@ class DemoApp:
             tx, ty = int(hb.x1), max(18, int(hb.y1) - 8)
             cv2.rectangle(img, (tx, ty - th - 6), (tx + tw, ty + 2), color, -1)
             cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
-        for p in result.persons:
-            b = p.box
-            cv2.rectangle(img, (int(b.x1), int(b.y1)), (int(b.x2), int(b.y2)), (255, 107, 47), 2)
-            cv2.putText(img, f"P#{b.track_id} {b.conf:.2f}", (int(b.x1), int(b.y1) - 6),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 107, 47), 1)
         if result.fall:
             banner = "FALL ALERT"
             (bw, bh), _ = cv2.getTextSize(banner, cv2.FONT_HERSHEY_SIMPLEX, 1.4, 3)
             bx = (img.shape[1] - bw) // 2
-            cv2.rectangle(img, (bx - 14, 22), (bx + bw + 14, 22 + bh + 16), (0, 0, 255), -1)
+            cv2.rectangle(img, (bx - 14, 22), (bx + bw + 14, 22 + bh + 16), (40, 40, 235), -1)
             cv2.putText(img, banner, (bx, 22 + bh + 4), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (255, 255, 255), 3)
         return img
+
+    @staticmethod
+    def _head_to_person(hb, persons):
+        for p in persons:
+            b = p.box
+            if hb.x1 >= b.x1 and hb.y1 >= b.y1 and hb.x2 <= b.x2 and hb.y2 <= b.y2:
+                return b.track_id
+        return None
 
     def _fire(self, ev: AlertEvent, frame):
         now = time.time()
@@ -182,7 +190,12 @@ class DemoApp:
                         if use_clip_now and 0.3 <= hb.conf <= 0.6:
                             no_helmet, conf = self.clip.verify(frame, hb, hb.conf)
                         if no_helmet:
-                            ev = AlertEvent("NO_HELMET", self.report.now(), conf, track_id=hb.track_id)
+                            tid = self._head_to_person(hb, res.persons)
+                            detail = "YOLO 检出未戴帽"
+                            if use_clip_now and 0.3 <= hb.conf <= 0.6:
+                                detail = "低置信度,经 CLIP 语义复核确认未戴帽"
+                            ev = AlertEvent("NO_HELMET", self.report.now(), conf,
+                                            track_id=tid, detail=detail)
                             self._fire(ev, drawn)
             if fall_on:
                 for tid in fall_ids:
@@ -244,10 +257,10 @@ def build_ui():
         with gr.Column(elem_id="page-title"):
             gr.HTML(
                 '<h1 style="color:#ffffff;margin:0;font-size:26px;letter-spacing:1px;">'
-                '工业安全 AI 智能预警原型系统</h1>'
+                '工业安全 AI 智能预警系统</h1>'
                 '<p style="color:#cfe0f2;margin:6px 0 0;font-size:14px;">'
-                'YOLO11s 检测/姿态 + ByteTrack 跟踪 + 规则引擎 + CLIP 兜底 · '
-                '三大能力:安全帽佩戴 · 人员倒地 · 危险区域闯入 —— 支持按模块开关单独验证</p>'
+                '实时视频智能监控:自动识别「未戴安全帽」「人员倒地」「闯入危险区域」'
+                '三类安全隐患,第一时间告警并留存证据,支持事后追溯。</p>'
             )
         gr.Markdown(LEGEND_HTML)
         with gr.Tabs():
