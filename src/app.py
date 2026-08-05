@@ -24,7 +24,7 @@ from src.storage import AlertStore
 import gradio as gr
 
 HELMET_DEMO = PROJECT_ROOT / "data" / "demo" / "demo_helmet.mp4"
-FALL_DEMO = PROJECT_ROOT / "data" / "fall_detection" / "ur_fall" / "falls" / "fall-10-cam0.mp4"
+FALL_DEMO = PROJECT_ROOT / "data" / "demo" / "fall-10-demo.mp4"
 OUT_VIDEO = PROJECT_ROOT / "results" / "demo_output.mp4"
 
 CSS = """
@@ -77,7 +77,7 @@ class DemoApp:
                 print(f"[warn] CLIP 加载失败,跳过兜底复核: {e}")
                 self.clip = None
 
-    def _draw(self, frame, result, roi_on=True):
+    def _draw(self, frame, result, roi_on=True, helmet_on=True, person_on=True):
         img = frame.copy()
         if roi_on:
             pts = np.array([(x * img.shape[1], y * img.shape[0]) for x, y in self.intrusion.roi], np.int32)
@@ -87,21 +87,23 @@ class DemoApp:
             cv2.polylines(img, [pts], True, (0, 215, 255), 3)
             cv2.putText(img, "DANGER ZONE", (pts[:, 0].min(), max(24, pts[:, 1].min() - 10)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 215, 255), 2)
-        for p in result.persons:
-            b = p.box
-            cv2.rectangle(img, (int(b.x1), int(b.y1)), (int(b.x2), int(b.y2)), (255, 128, 0), 2)
-            cv2.putText(img, f"P#{b.track_id} {b.conf:.2f}", (int(b.x1), int(b.y1) - 6),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 128, 0), 1)
-        for hb in result.heads:
-            no_helmet = hb.cls == 0
-            color = (40, 40, 235) if no_helmet else (80, 175, 60)
-            thick = 3 if no_helmet else 2
-            cv2.rectangle(img, (int(hb.x1), int(hb.y1)), (int(hb.x2), int(hb.y2)), color, thick)
-            label = f"NO_HELMET {hb.conf:.2f}" if no_helmet else f"HELMET {hb.conf:.2f}"
-            (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
-            tx, ty = int(hb.x1), max(18, int(hb.y1) - 8)
-            cv2.rectangle(img, (tx, ty - th - 6), (tx + tw, ty + 2), color, -1)
-            cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
+        if person_on:
+            for p in result.persons:
+                b = p.box
+                cv2.rectangle(img, (int(b.x1), int(b.y1)), (int(b.x2), int(b.y2)), (255, 128, 0), 2)
+                cv2.putText(img, f"P#{b.track_id} {b.conf:.2f}", (int(b.x1), int(b.y1) - 6),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 128, 0), 1)
+        if helmet_on:
+            for hb in result.heads:
+                no_helmet = hb.cls == 0
+                color = (40, 40, 235) if no_helmet else (80, 175, 60)
+                thick = 3 if no_helmet else 2
+                cv2.rectangle(img, (int(hb.x1), int(hb.y1)), (int(hb.x2), int(hb.y2)), color, thick)
+                label = f"NO_HELMET {hb.conf:.2f}" if no_helmet else f"HELMET {hb.conf:.2f}"
+                (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
+                tx, ty = int(hb.x1), max(18, int(hb.y1) - 8)
+                cv2.rectangle(img, (tx, ty - th - 6), (tx + tw, ty + 2), color, -1)
+                cv2.putText(img, label, (tx, ty), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2)
         if result.fall:
             banner = "FALL ALERT"
             (bw, bh), _ = cv2.getTextSize(banner, cv2.FONT_HERSHEY_SIMPLEX, 1.4, 3)
@@ -112,11 +114,22 @@ class DemoApp:
 
     @staticmethod
     def _head_to_person(hb, persons):
+        best, best_overlap = None, -1
+        nearest, nearest_d = None, None
+        hc = ((hb.x1 + hb.x2) / 2, (hb.y1 + hb.y2) / 2)
         for p in persons:
             b = p.box
-            if hb.x1 >= b.x1 and hb.y1 >= b.y1 and hb.x2 <= b.x2 and hb.y2 <= b.y2:
-                return b.track_id
-        return None
+            x_overlap = min(hb.x2, b.x2) - max(hb.x1, b.x1)
+            if x_overlap > 0:
+                p_h = b.y2 - b.y1
+                if (b.y1 - p_h) <= hb.y1 and hb.y2 <= (b.y2 + p_h):
+                    if x_overlap > best_overlap:
+                        best_overlap, best = x_overlap, b.track_id
+            bc = ((b.x1 + b.x2) / 2, (b.y1 + b.y2) / 2)
+            d = (hc[0] - bc[0]) ** 2 + (hc[1] - bc[1]) ** 2
+            if nearest_d is None or d < nearest_d:
+                nearest_d, nearest = d, b.track_id
+        return best if best is not None else nearest
 
     def _fire(self, ev: AlertEvent, frame):
         now = time.time()
@@ -175,11 +188,13 @@ class DemoApp:
                     return None, "视频编码器初始化失败(avc1/h264/mp4v 均不可用)。", [], [], 0, 0, 0
             progress((frame_idx + 1) / (max_frames or total or 1), desc=f"处理中 {frame_idx + 1} 帧")
             res = self.vision.process_frame(frame)
-            drawn = self._draw(frame, res, roi_on=intrusion_on)
+            drawn = self._draw(frame, res, roi_on=intrusion_on,
+                               helmet_on=helmet_on, person_on=fall_on or intrusion_on)
             if fall_on:
                 fall_ids = self.fall_sm.update(res.persons)
                 res.fall = bool(fall_ids)
-                drawn = self._draw(frame, res, roi_on=intrusion_on)
+                drawn = self._draw(frame, res, roi_on=intrusion_on,
+                                   helmet_on=helmet_on, person_on=fall_on or intrusion_on)
             intr = self.intrusion.update(res.persons, frame.shape[:2]) if intrusion_on else []
             if helmet_on:
                 for hb in res.heads:
