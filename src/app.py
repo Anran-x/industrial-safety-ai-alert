@@ -25,6 +25,7 @@ import gradio as gr
 
 HELMET_DEMO = PROJECT_ROOT / "data" / "demo" / "demo_helmet.mp4"
 FALL_DEMO = PROJECT_ROOT / "data" / "demo" / "fall-10-demo.mp4"
+OVERHEAD_DEMO = PROJECT_ROOT / "data" / "demo" / "fall-overhead-demo.mp4"
 OUT_VIDEO = PROJECT_ROOT / "results" / "demo_output.mp4"
 
 CSS = """
@@ -285,7 +286,8 @@ def build_ui():
                         video = gr.Video(label="① 上传监控视频(mp4/avi/webm)", format=None)
                         with gr.Row():
                             btn_helm_demo = gr.Button("载入:安全帽演示", size="sm")
-                            btn_fall_demo = gr.Button("载入:倒地演示", size="sm")
+                            btn_fall_demo = gr.Button("载入:倒地演示(平视)", size="sm")
+                            btn_overhead_demo = gr.Button("载入:倒地演示(俯视)", size="sm")
                         with gr.Accordion("高级参数(可按模块独立开关)", open=True):
                             with gr.Row():
                                 helmet_on = gr.Checkbox(value=True, label="启用安全帽检测")
@@ -315,6 +317,7 @@ def build_ui():
                             label="本轮告警记录", interactive=False)
                 btn_helm_demo.click(lambda: str(HELMET_DEMO), None, video)
                 btn_fall_demo.click(lambda: str(FALL_DEMO), None, video)
+                btn_overhead_demo.click(lambda: str(OVERHEAD_DEMO), None, video)
             with gr.Tab("② 告警中心"):
                 gallery = gr.Gallery(label="告警截图证据墙(全部)", columns=4, height=320,
                                      object_fit="cover")
@@ -331,7 +334,7 @@ def build_ui():
 | 模块 | 判定标准 | 可调参数 |
 |---|---|---|
 | 安全帽佩戴 | YOLO11s 检出 no_helmet 类别(置信度≥0.35);低置信度[0.35,0.55]由 CLIP 复核 | 置信度阈值(HELMET_CONF) |
-| 人员倒地 | 人体框宽高比 > 1.4 连续 8 帧(躺倒),离地 30 帧复位;配快速倒伏双门控(1.8s 窗口 + 24 帧宽高比变化 ≥0.5) | FALL_* 系列参数 |
+| 人员倒地 | 人体框宽高比 > 1.4 连续 8 帧(躺倒),离地 30 帧复位;配快速倒伏双门控(1.8s 窗口 + 24 帧宽高比变化 ≥0.5)。**规则基于平视(cam0)标定;正俯视场景实测召回受限**(平视 80% vs 正俯视 30%,URFD cam1 验证) | FALL_* 系列参数 |
 | 危险区域闯入 | 人员中心点(归一化)进入 ROI 多边形连续 5 帧告警;离区 15 帧复位,离区 90 帧清理 | ROI 多边形(UI 可直接改) |
 
 ### 关于危险区域(实际场景)
@@ -340,14 +343,16 @@ def build_ui():
 - 真实部署时只需按相机画面配置一次多边形即可。
 
 ### 运行与硬件
-- 全链路 1050Ti 约 43ms/帧(~23 FPS);纯 CPU 模式可用(降低分辨率)。
+- 全链路 1050Ti 约 65ms/帧(@960,约 15 FPS);纯 CPU 模式可用(降低分辨率)。
 - 输出 H.264 编码 mp4(已内置 openh264 编码器),浏览器可直接预览。
 - 告警截图保存于 `results/screenshots/`,记录存 `results/alerts.db`,汇总样例见 `results/sample_report.md`。
                     """
                 )
                 gr.Markdown(
                     "### 演示素材\n- `data/demo/demo_helmet.mp4`:安全帽检测示例(12 张图轮播 120 帧)\n"
-                    "- `data/fall_detection/ur_fall/falls/fall-10-cam0.mp4`:UR Fall 倒地示例\n\n"
+                    "- `data/demo/fall-10-demo.mp4`:UR Fall 倒地示例(平视 cam0)\n"
+                    "- `data/demo/fall-overhead-demo.mp4`:UR Fall 倒地示例(正俯视 cam1,规则可检出段落)\n"
+                    "- 倒地规则阈值基于平视数据标定,正俯视角下检出能力有限(见 docs/eval_report.md §2.1)\n\n"
                     "> 原型系统:指标来自公开数据集(SHWD / UR Fall),演示为实验室场景,"
                     "非产线实测,不声明生产级指标。")
         gr.Markdown("<footer>工业安全 AI 智能预警原型系统 · YOLO11s + ByteTrack + CLIP · 原型级,非产品级</footer>")

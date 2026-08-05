@@ -108,4 +108,7 @@ if __name__ == "__main__":
     make_helmet_clip(DEMO_VIDEO.parent / "demo_helmet.mp4")
     make_fall_demo_clip(UR_FALL_DIR / "falls" / "fall-10-cam0.mp4",
                         DEMO_VIDEO.parent / "fall-10-demo.mp4")
+    # 俯视(天花板)视角跌倒演示:URFD cam1,规则可检出的段落
+    make_fall_demo_clip(UR_FALL_DIR / "falls_overhead" / "fall-04-cam1.mp4",
+                        DEMO_VIDEO.parent / "fall-overhead-demo.mp4")
     list_fall_demos()
