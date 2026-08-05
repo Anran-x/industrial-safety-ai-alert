@@ -22,10 +22,13 @@ from src.core import detector as det  # noqa
 from src.behavior.fall_detector import FallStateMachine
 
 
-def process_video(path: str, vision, step: int = 3):
+def process_video(path: str, vision, step: int = 1, sm: FallStateMachine = None):
+    """逐帧处理(与应用端逐帧语义一致)。返回 (是否告警, 处理帧数, 最大躺倒证据)。"""
     cap = cv2.VideoCapture(path)
-    sm = FallStateMachine()
+    if sm is None:
+        sm = FallStateMachine()
     alarm = []
+    max_lying = 0
     total = 0
     idx = 0
     while True:
@@ -39,10 +42,12 @@ def process_video(path: str, vision, step: int = 3):
         a = sm.update(res.persons)
         if a:
             alarm.extend(a)
+        if sm._lying_count:
+            max_lying = max(max_lying, max(sm._lying_count.values()))
         total += 1
         idx += 1
     cap.release()
-    return bool(alarm), total
+    return bool(alarm), total, max_lying
 
 
 def main():
@@ -57,18 +62,18 @@ def main():
     fall_total, adl_total = 0, 0
     details = []
     for v in sorted(fall_dir.glob("*.mp4")):
-        hit, total = process_video(str(v), vision)
+        hit, total, mx = process_video(str(v), vision)
         fall_total += 1
         if hit:
             tp += 1
-        details.append(("FALL", v.name, "TP" if hit else "MISS"))
-        print(f"[FALL] {v.name}: {'检出' if hit else '漏检'}")
+        details.append(("FALL", v.name, "TP" if hit else "MISS", mx))
+        print(f"[FALL] {v.name}: {'检出' if hit else '漏检'}  峰值躺倒计数={mx}")
     for v in sorted(adl_dir.glob("*.mp4")):
-        hit, total = process_video(str(v), vision)
+        hit, total, mx = process_video(str(v), vision)
         adl_total += 1
         if hit:
             tn += 1
-        print(f"[ADL ] {v.name}: {'误报' if hit else '正常'}")
+        print(f"[ADL ] {v.name}: {'误报' if hit else '正常'}  峰值躺倒计数={mx}")
 
     recall = tp / fall_total if fall_total else 0
     print("\n========== 评估结果 ==========")

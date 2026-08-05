@@ -13,7 +13,7 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.config import ALERT_SCREENSHOT_DIR, INTRUSION_ROI
+from src.config import ALERT_SCREENSHOT_DIR, INTRUSION_ROI, TARGET_FPS
 from src.core.detector import SafetyVision
 from src.behavior.fall_detector import FallStateMachine
 from src.behavior.intrusion_detector import IntrusionDetector
@@ -27,7 +27,7 @@ import gradio as gr
 class DemoApp:
     def __init__(self):
         self.vision = None
-        self.fall_sm = FallStateMachine()
+        self.fall_sm = FallStateMachine(fps=TARGET_FPS)
         self.intrusion = IntrusionDetector()
         self.clip = None
         self.report = ReportGenerator()
@@ -118,7 +118,7 @@ class DemoApp:
                         ev = AlertEvent("NO_HELMET", self.report.now(), conf,
                                         track_id=hb.track_id)
                         self._fire(ev, frame)
-            for tid, _t in fall_ids:
+            for tid in fall_ids:
                 ev = AlertEvent("FALL", self.report.now(), 0.9, track_id=tid,
                                 detail=f"连续多帧姿态水平判定")
                 self._fire(ev, frame)

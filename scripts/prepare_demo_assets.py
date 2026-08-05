@@ -32,13 +32,17 @@ def make_helmet_clip(out: Path, n_per_class: int = 6, fps: int = 10):
     random.shuffle(picks)
 
     writer = None
+    W = H = None
     for f in picks:
         img = cv2.imread(str(f))
         if img is None:
             continue
         h, w = img.shape[:2]
-        if writer is None:
-            writer = cv2.VideoWriter(str(out), cv2.VideoWriter_fourcc(*"mp4v"), fps, (w, h))
+        if W is None:
+            W, H = w, h
+            writer = cv2.VideoWriter(str(out), cv2.VideoWriter_fourcc(*"mp4v"), fps, (W, H))
+        if h != H or w != W:
+            img = cv2.resize(img, (W, H))  # 统一尺寸,否则 mp4v 编码会丢帧
         for _ in range(fps):
             writer.write(img)
     if writer is not None:
@@ -58,5 +62,6 @@ def list_fall_demos():
 
 if __name__ == "__main__":
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DEMO_VIDEO.parent.mkdir(parents=True, exist_ok=True)
     make_helmet_clip(DEMO_VIDEO.parent / "demo_helmet.mp4")
     list_fall_demos()
