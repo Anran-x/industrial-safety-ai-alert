@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 import cv2
+import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -25,7 +26,7 @@ def _open_writer(path, fps, size):
     return None, None
 
 
-def make_helmet_clip(out: Path, n_per_class: int = 6, fps: int = 10):
+def make_helmet_clip(out: Path, n_per_class: int = 6, fps: int = 10, size: int = 640):
     random.seed(42)
     img_dir = HELMET_YOLO / "images" / "test"
     lbl_dir = HELMET_YOLO / "labels" / "test"
@@ -40,23 +41,25 @@ def make_helmet_clip(out: Path, n_per_class: int = 6, fps: int = 10):
         picks += random.sample(cands, min(n_per_class, len(cands)))
     random.shuffle(picks)
 
-    writer = None
-    W = H = None
+    writer, codec = None, None
     for f in picks:
         img = cv2.imread(str(f))
         if img is None:
             continue
         h, w = img.shape[:2]
-        if W is None:
-            W, H = w, h
-            writer, codec = _open_writer(out, fps, (W, H))
+        # 等比缩放 + 灰边补齐到 size×size,避免拉伸变形导致小目标检测丢失
+        s = min(size / w, size / h)
+        nw, nh = int(w * s), int(h * s)
+        img2 = cv2.resize(img, (nw, nh), interpolation=cv2.INTER_LINEAR)
+        canvas = np.full((size, size, 3), (114, 114, 114), np.uint8)
+        canvas[(size - nh) // 2:(size - nh) // 2 + nh, (size - nw) // 2:(size - nw) // 2 + nw] = img2
+        if writer is None:
+            writer, codec = _open_writer(out, fps, (size, size))
             if writer is None:
                 raise RuntimeError("no video encoder available")
-            print(f"  helmet clip 编码: {codec}")
-        if h != H or w != W:
-            img = cv2.resize(img, (W, H))  # 统一尺寸,否则 mp4v 编码会丢帧
+            print(f"  helmet clip 编码: {codec} (画布 {size}x{size},等比缩放+灰边)")
         for _ in range(fps):
-            writer.write(img)
+            writer.write(canvas)
     if writer is not None:
         writer.release()
     print(f"helmet demo -> {out} ({len(picks)} images)")
