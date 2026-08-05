@@ -157,8 +157,14 @@ class DemoApp:
 
     def process_video(self, video_path, roi_str="", helmet_on=True, fall_on=True,
                       intrusion_on=True, use_clip=True, max_frames=0,
+                      view_preset="平视(cam0 标定,默认)",
                       progress=gr.Progress()):
         self._ensure_models()
+        if view_preset == "45° 斜装(楼道/机柜间)":
+            self.fall_sm = FallStateMachine(fps=TARGET_FPS, lying_aspect=1.2,
+                                            confirm_frames=6)
+        else:
+            self.fall_sm = FallStateMachine(fps=TARGET_FPS)
         self.alerts = []
         self._run_shots = []
         if roi_str.strip():
@@ -293,6 +299,10 @@ def build_ui():
                                 helmet_on = gr.Checkbox(value=True, label="启用安全帽检测")
                                 fall_on = gr.Checkbox(value=True, label="启用倒地检测")
                                 intrusion_on = gr.Checkbox(value=True, label="启用闯入检测")
+                            view_preset = gr.Radio(
+                                ["平视(cam0 标定,默认)", "45° 斜装(楼道/机柜间)"],
+                                value="平视(cam0 标定,默认)", label="倒地检测视角预设",
+                                info="45° 斜装按 Le2i 帧段验证参数(1.2/6 帧),正俯视不适用规则法")
                             roi = gr.Textbox(value="0.05,0.30;0.95,0.30;0.95,0.75;0.05,0.75",
                                              label="闯入区域 ROI(归一化多边形,x,y;x,y;...;整片视频固定)")
                             with gr.Row():
@@ -302,7 +312,7 @@ def build_ui():
                         run_btn = gr.Button("开始检测", variant="primary", size="lg")
                         gr.Markdown(
                             "**判定标准速览** 未戴帽:YOLO 检出 no_helmet;"
-                            "倒地:人体框连续 8 帧宽高比>1.4 且满足快速倒伏门控;"
+                            "倒地:人体框连续 8 帧宽高比>1.4(45° 斜装预设为 6 帧>1.2)且满足快速倒伏门控;"
                             "闯入:人员中心点连续 5 帧进入 ROI 多边形。详见「使用说明」页。")
                     with gr.Column(scale=3):
                         out_video = gr.Video(label="② 检测结果(红=未戴帽 / 绿=已戴帽 / 蓝=人员 / 黄=危险区域)",
@@ -334,7 +344,7 @@ def build_ui():
 | 模块 | 判定标准 | 可调参数 |
 |---|---|---|
 | 安全帽佩戴 | YOLO11s 检出 no_helmet 类别(置信度≥0.35);低置信度[0.35,0.55]由 CLIP 复核 | 置信度阈值(HELMET_CONF) |
-| 人员倒地 | 人体框宽高比 > 1.4 连续 8 帧(躺倒),离地 30 帧复位;配快速倒伏双门控(1.8s 窗口 + 24 帧宽高比变化 ≥0.5)。**规则基于平视(cam0)标定;正俯视场景实测召回受限**(平视 80% vs 正俯视 30%,URFD cam1 验证) | FALL_* 系列参数 |
+| 人员倒地 | 人体框宽高比 > 1.4 连续 8 帧(躺倒,平视预设);45° 斜装预设 1.2 / 6 帧;离地 30 帧复位;配快速倒伏双门控(1.8s 窗口 + 24 帧宽高比变化 ≥0.5)。**三视角实测**:平视 80%(URFD cam0)、45° 斜装 57%(Le2i 帧段)、正俯视 ~30% 且调参无甜区(URFD cam1),正俯视不适用规则法 | FALL_* 系列参数 / 视角预设 |
 | 危险区域闯入 | 人员中心点(归一化)进入 ROI 多边形连续 5 帧告警;离区 15 帧复位,离区 90 帧清理 | ROI 多边形(UI 可直接改) |
 
 ### 关于危险区域(实际场景)
@@ -352,13 +362,14 @@ def build_ui():
                     "### 演示素材\n- `data/demo/demo_helmet.mp4`:安全帽检测示例(12 张图轮播 120 帧)\n"
                     "- `data/demo/fall-10-demo.mp4`:UR Fall 倒地示例(平视 cam0)\n"
                     "- `data/demo/fall-overhead-demo.mp4`:UR Fall 倒地示例(正俯视 cam1,规则可检出段落)\n"
-                    "- 倒地规则阈值基于平视数据标定,正俯视角下检出能力有限(见 docs/eval_report.md §2.1)\n\n"
+                    "- 视角预设:「平视」1.4/8 帧(URFD cam0 标定 80%);「45° 斜装」1.2/6 帧(Le2i 帧段 57%,Likefall 误报 0%);正俯视规则法不适用(见 docs/eval_report.md §2)\n\n"
                     "> 原型系统:指标来自公开数据集(SHWD / UR Fall),演示为实验室场景,"
                     "非产线实测,不声明生产级指标。")
         gr.Markdown("<footer>工业安全 AI 智能预警原型系统 · YOLO11s + ByteTrack + CLIP · 原型级,非产品级</footer>")
 
         run_btn.click(app.process_video,
-                      [video, roi, helmet_on, fall_on, intrusion_on, use_clip, max_frames],
+                      [video, roi, helmet_on, fall_on, intrusion_on, use_clip,
+                       max_frames, view_preset],
                       [out_video, info, alert_list, gallery, stat_nh, stat_fall, stat_intr])
 
     return demo

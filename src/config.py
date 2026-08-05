@@ -26,6 +26,10 @@ HELMET_CLIP_LOW = 0.35    # 低置信度区间下限(交给 CLIP 复核)
 HELMET_CLIP_HIGH = 0.55   # 低置信度区间上限
 
 # ---------- 倒地判定配置 ----------
+# 已验证的三视角实测(见 docs/eval_report.md §2):
+# - 平视(URFD cam0):aspect=1.4 / confirm=8,检出 24/30(80%),ADL 误报 3/40
+# - 正俯视(URFD cam1):几何阈值无甜区,调参后召回上限 ~30%,规则法不适用
+# - 45° 斜装(Le2i 帧段):aspect=1.2 / confirm=6 达 57% 且 Likefall 误报 0%
 FALL_LYING_ASPECT = 1.4        # 人体框宽高比 > 该值视为"躺倒"
 FALL_CONFIRM_FRAMES = 8        # 连续 N 帧判定倒地才告警(抑制瞬时误报)
 FALL_RESET_FRAMES = 30         # 离地(站立)连续 M 帧后复位状态
